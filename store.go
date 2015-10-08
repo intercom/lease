@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"github.com/intercom/gocore/log"
 )
 
 var (
@@ -95,7 +94,7 @@ func (s *LockStore) Lease(leaseID string, request LeaseRequest, until time.Time)
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
 			if awsErr.Code() == "ConditionalCheckFailedException" {
-				log.LogInfoMessage("Failed to obtain lease", "Code", "ConditionalCheckFailedException")
+				globalLeaseLogger.LogInfoMessage("Failed to obtain lease", "Code", "ConditionalCheckFailedException")
 				return nil, err
 			}
 			logAWSError(err)
@@ -114,18 +113,18 @@ func (s *LockStore) Lease(leaseID string, request LeaseRequest, until time.Time)
 func logAWSError(err error) {
 	if awsErr, ok := err.(awserr.Error); ok {
 		if reqErr, ok := err.(awserr.RequestFailure); ok {
-			log.LogErrorMessage("AWS Error",
+			globalLeaseLogger.LogErrorMessage("AWS Error",
 				"Code", reqErr.Code(),
 				"AWSMessage", reqErr.Message(),
 				"StatusCode", reqErr.StatusCode(),
 				"DDBRequestID", reqErr.RequestID())
 		} else {
-			log.LogErrorMessage("AWS Error",
+			globalLeaseLogger.LogErrorMessage("AWS Error",
 				"Code", awsErr.Code(),
 				"AWSMessage", awsErr.Message(),
 				"OriginalError", awsErr.OrigErr())
 		}
 	} else {
-		log.LogErrorMessage("AWS Error", "error", err.Error())
+		globalLeaseLogger.LogErrorMessage("AWS Error", "error", err.Error())
 	}
 }
