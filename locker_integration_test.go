@@ -3,6 +3,7 @@
 package lease
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -23,19 +24,12 @@ func (mr *mongoIDsLeaseRequest) LeaseDuration() time.Duration {
 	return time.Second * 3
 }
 
-func (mr *mongoIDsLeaseRequest) AttributesToData(attributes map[string]*dynamodb.AttributeValue) (interface{}, error) {
-	if attributes == nil {
-		return "", nil
-	}
-	return *attributes["MongoAddresses"].S, nil
-}
-
 func TestIntegratedLocker(t *testing.T) {
 	locker := NewLocker(setupTestStore())
 	lease, err := locker.ObtainLease(&mongoIDsLeaseRequest{lesseeID: "lessee1"})
 	assert.Equal(t, err, nil)
 	assert.Equal(t, "1", lease.LeaseID)
-	assert.Equal(t, "127.0.0.1:17017", lease.Data)
+	assert.Equal(t, "127.0.0.1:17017", *lease.AttributeValues["MongoAddresses"].S)
 }
 
 func TestIntegratedLockerCompetition(t *testing.T) {
@@ -50,10 +44,12 @@ func TestIntegratedLockerCompetition(t *testing.T) {
 	assert.NotEqual(t, err, nil)
 }
 
-// This test relies on the argus_development_lock table being set up with a single row, with LeaseID == 1.
+// This test relies on a table being set up with a single row
 func setupTestStore() *LockStore {
+	tableName := os.Getenv("LEASETESTTABLENAME")
+	hashKey := os.Getenv("LEASETESTHASHKEY")
 	config := &aws.Config{
 		Region: aws.String("us-east-1")}
 	ddb := dynamodb.New(config)
-	return NewLockStore(ddb, "argus_development_lock", "ReplicaID")
+	return NewLockStore(ddb, tableName, hashKey)
 }

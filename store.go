@@ -104,8 +104,7 @@ func (s *LockStore) Lease(leaseID string, request LeaseRequest, until time.Time)
 		}
 		panic(err)
 	}
-	leased := &Lease{LeaseID: leaseID, Request: request, Until: until}
-	leased.Data, err = request.AttributesToData(item.Attributes)
+	leased := &Lease{LeaseID: leaseID, Request: request, Until: until, AttributeValues: item.Attributes}
 	if err != nil {
 		return nil, err
 	}

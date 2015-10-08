@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/stretchr/testify/assert"
 )
@@ -43,11 +44,10 @@ func (ls *JustOnceInMemoryLockerStore) Lease(leaseID string, request LeaseReques
 	if ls.count >= ls.maxCount {
 		return nil, errors.New("stopped")
 	} else if ls.count >= ls.obtainLockAfter {
-		data, err := request.AttributesToData(nil)
-		if err != nil {
-			return nil, err
-		}
-		return &Lease{LeaseID: leaseID, Data: data, Request: request}, nil
+		return &Lease{LeaseID: leaseID, Request: request, AttributeValues: map[string]*dynamodb.AttributeValue{
+			"MongoAddresses": &dynamodb.AttributeValue{
+				S: aws.String("127.0.0.1:1234"),
+			}}}, nil
 	} else {
 		return nil, errors.New("lock not obtained")
 	}
@@ -66,11 +66,4 @@ func (tlr *testLeaseRequest) LesseeID() string {
 
 func (tlr *testLeaseRequest) LeaseDuration() time.Duration {
 	return time.Second * 30
-}
-
-func (tlr *testLeaseRequest) AttributesToData(attributes map[string]*dynamodb.AttributeValue) (interface{}, error) {
-	if attributes == nil {
-		return "", nil
-	}
-	return *attributes["MongoAddresses"].S, nil
 }

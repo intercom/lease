@@ -10,8 +10,8 @@ import (
 type Lease struct {
 	// LeaseID - HashKey value of the lease row
 	LeaseID string
-	// Data - Extra data from the lease row, transformed from DynamoDB attributes by LeaseRequest
-	Data interface{}
+	// AttributeValues - Extra AttributeValues from the lease row
+	AttributeValues map[string]*dynamodb.AttributeValue
 	// Request - Lease Request that resulted in the Lease
 	Request LeaseRequest
 	// Until - Time the lease expires
@@ -24,6 +24,4 @@ type LeaseRequest interface {
 	LesseeID() string
 	// LeaseDuration - How long to initially take out a lease for.
 	LeaseDuration() time.Duration
-	// AttributesToData - Convert any dynamodb.AttributeValues to Data.
-	AttributesToData(attributes map[string]*dynamodb.AttributeValue) (interface{}, error)
 }
