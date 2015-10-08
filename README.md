@@ -66,7 +66,3 @@ Implement and set a logger conforming to the small LeaseLogger interface. Do thi
 ```go
 lease.SetLogger(myLogger)
 ```
-
-#### TODO
-
-- [ ] don't panic when things fail, not everyone wants that

@@ -1,6 +1,7 @@
 package lease
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -12,11 +13,14 @@ import (
 
 var (
 	GlobalLockStore *LockStore
+
+	// LeaseNotObtainedError returned when lease not obtained
+	LeaseNotObtainedError error = errors.New("Lease Not Obtained")
 )
 
 type lockerStore interface {
 	Lease(workID string, request LeaseRequest, until time.Time) (*Lease, error)
-	ListLeaseIDs() []string
+	ListLeaseIDs() ([]string, error)
 }
 
 // LockStore is the lockerStore implementation for DynamoDB.
@@ -45,29 +49,28 @@ func NewLockStore(ddb *dynamodb.DynamoDB, lockTableName, lockHashKeyName string)
 // List the IDs of all lease items stored in DynamoDB.
 //
 // Returns a list of string PKs of Lease's;
-// panics on any error contacting Dynamo.
-func (s *LockStore) ListLeaseIDs() []string {
+// returns errors if failing to contact Dynamo.
+func (s *LockStore) ListLeaseIDs() ([]string, error) {
 	result, err := s.Scan(&dynamodb.ScanInput{
 		TableName:            aws.String(s.tableName),
 		ProjectionExpression: aws.String(s.lockHashKeyName),
 	})
 	if err != nil {
 		logAWSError(err)
-		panic(err)
+		return nil, err
 	}
 
 	ids := []string{}
 	for _, item := range result.Items {
 		ids = append(ids, *item[s.lockHashKeyName].S)
 	}
-	return ids
+	return ids, nil
 }
 
 // Attempt to acquire, or renew, a lease on the given leaseID.
 //
 // Returns a Lease if successfully acquired/renewed;
-// if the lease is currently held by someone else, returns an error and nil Lease.
-// Panics on unexpected errors contacting Dynamo.
+// if the lease is currently held by someone else, returns a LeaseNotObtainedError and nil Lease.
 func (s *LockStore) Lease(leaseID string, request LeaseRequest, until time.Time) (*Lease, error) {
 	item, err := s.UpdateItem(&dynamodb.UpdateItemInput{
 		Key: map[string]*dynamodb.AttributeValue{
@@ -95,13 +98,13 @@ func (s *LockStore) Lease(leaseID string, request LeaseRequest, until time.Time)
 		if awsErr, ok := err.(awserr.Error); ok {
 			if awsErr.Code() == "ConditionalCheckFailedException" {
 				globalLeaseLogger.LogInfoMessage("Failed to obtain lease", "Code", "ConditionalCheckFailedException")
-				return nil, err
+				return nil, LeaseNotObtainedError
 			}
 			logAWSError(err)
 		} else {
 			logAWSError(err)
 		}
-		panic(err)
+		return nil, err
 	}
 	leased := &Lease{LeaseID: leaseID, Request: request, Until: until, AttributeValues: item.Attributes}
 	if err != nil {

@@ -1,7 +1,6 @@
 package lease
 
 import (
-	"errors"
 	"testing"
 	"time"
 
@@ -26,9 +25,8 @@ func TestLockerHeartbeats(t *testing.T) {
 	leaseRequest := &testLeaseRequest{}
 	lease, err := locker.ObtainLease(leaseRequest)
 	assert.Equal(t, nil, err)
-	assert.Panics(t, func() {
-		locker.Heartbeat(lease, 1*time.Second)
-	})
+	err = locker.Heartbeat(lease, 1*time.Second)
+	assert.Equal(t, "Lease Lost", err.Error())
 	assert.Equal(t, 3, store.count)
 }
 
@@ -42,19 +40,19 @@ type JustOnceInMemoryLockerStore struct {
 func (ls *JustOnceInMemoryLockerStore) Lease(leaseID string, request LeaseRequest, until time.Time) (*Lease, error) {
 	ls.count += 1
 	if ls.count >= ls.maxCount {
-		return nil, errors.New("stopped")
+		return nil, LeaseNotObtainedError
 	} else if ls.count >= ls.obtainLockAfter {
 		return &Lease{LeaseID: leaseID, Request: request, AttributeValues: map[string]*dynamodb.AttributeValue{
 			"MongoAddresses": &dynamodb.AttributeValue{
 				S: aws.String("127.0.0.1:1234"),
 			}}}, nil
 	} else {
-		return nil, errors.New("lock not obtained")
+		return nil, LeaseNotObtainedError
 	}
 }
 
-func (ls *JustOnceInMemoryLockerStore) ListLeaseIDs() []string {
-	return ls.leaseIDs
+func (ls *JustOnceInMemoryLockerStore) ListLeaseIDs() ([]string, error) {
+	return ls.leaseIDs, nil
 }
 
 type testLeaseRequest struct {

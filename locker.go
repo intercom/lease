@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+var (
+	// LeaseLostError returned when a lease is lost
+	LeaseLostError error = errors.New("Lease Lost")
+)
+
 // A Locker provides methods to obtain and renew leases.
 type Locker struct {
 	store lockerStore
@@ -16,19 +21,25 @@ func NewLocker(store lockerStore) *Locker {
 }
 
 // ObtainLease scans over possible leaseable items and tries to acquire a lease on any of them.
-// Returns nil with an error if it can't acquire a lease.
+// Returns nil with a LeaseNotObtainedError if it can't acquire a lease.
 func (l *Locker) ObtainLease(request LeaseRequest) (*Lease, error) {
-	leaseIDs := l.store.ListLeaseIDs()
+	leaseIDs, err := l.store.ListLeaseIDs()
+	if err != nil {
+		return nil, err
+	}
 
 	for _, leaseID := range leaseIDs {
 		lease, err := l.store.Lease(leaseID, request, time.Now().Add(request.LeaseDuration()))
 		if err == nil { // no error means we successfully got a lease
 			globalLeaseLogger.LogInfoMessage("Obtained Lease", "lessee_id", request.LesseeID(), "lease_id", lease.LeaseID)
 			return lease, nil
+		} else if err != nil && err != LeaseNotObtainedError {
+			// unexpected error
+			return lease, err
 		}
 	}
 
-	return nil, errors.New("Unable to acquire any lease")
+	return nil, LeaseNotObtainedError
 }
 
 // WaitUntilLeaseObtained scans over possible leaseable items and tries to acquire a lease on any of them.
@@ -48,8 +59,9 @@ func (l *Locker) WaitUntilLeaseObtained(request LeaseRequest, waitPeriod time.Du
 }
 
 // Heartbeat starts a loop that renews the lease periodically.
-// Panics if the lease is lost.
-func (l *Locker) Heartbeat(lease *Lease, heartbeatDuration time.Duration) {
+// Returns LeaseLostError if the lease is lost
+// Returns other errors when failing to contact DDB.
+func (l *Locker) Heartbeat(lease *Lease, heartbeatDuration time.Duration) error {
 	var err error
 
 	// every heartbeatDuration, try and renew the lease.
@@ -57,8 +69,12 @@ func (l *Locker) Heartbeat(lease *Lease, heartbeatDuration time.Duration) {
 	for range ticker.C {
 		_, err = l.store.Lease(lease.LeaseID, lease.Request, time.Now().Add(lease.Request.LeaseDuration()))
 		if err != nil {
-			panic("Lease lost!")
+			if err == LeaseNotObtainedError {
+				return LeaseLostError
+			}
+			return err
 		}
 		globalLeaseLogger.LogInfoMessage("Renewed Lease", "lessee_id", lease.Request.LesseeID(), "lease_id", lease.LeaseID)
 	}
+	return nil
 }
