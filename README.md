@@ -61,7 +61,7 @@ or with integration tests that require a real DynamoDB to connect to:
 
 #### Logging
 
-Implement and set a logger conforming to the small LeaseLogger interface. Do this prior to use.
+Implement and set a logger conforming to the small LeaseLogger interface. Do this prior to use if you want logging to go anywhere. By default the library will work but you won't get any log messages.
 
 ```go
 lease.SetLogger(myLogger)
