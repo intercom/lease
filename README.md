@@ -1,6 +1,6 @@
 ## Lease
 
-Lease is a general DynamoDB-based lease implementation.
+Lease is a general DynamoDB-based lease implementation, ideal for long-lived work items, with coarse-grained leases.
 
 #### Usage
 
