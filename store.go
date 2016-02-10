@@ -97,7 +97,6 @@ func (s *LockStore) Lease(leaseID string, request LeaseRequest, until time.Time)
 	if err != nil {
 		if awsErr, ok := err.(awserr.Error); ok {
 			if awsErr.Code() == "ConditionalCheckFailedException" {
-				globalLeaseLogger.LogInfoMessage("Failed to obtain lease", "Code", "ConditionalCheckFailedException")
 				return nil, LeaseNotObtainedError
 			}
 			logAWSError(err)
