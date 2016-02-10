@@ -31,7 +31,6 @@ func (l *Locker) ObtainLease(request LeaseRequest) (*Lease, error) {
 	for _, leaseID := range leaseIDs {
 		lease, err := l.store.Lease(leaseID, request, time.Now().Add(request.LeaseDuration()))
 		if err == nil { // no error means we successfully got a lease
-			globalLeaseLogger.LogInfoMessage("Obtained Lease", "lessee_id", request.LesseeID(), "lease_id", lease.LeaseID)
 			return lease, nil
 		} else if err != nil && err != LeaseNotObtainedError {
 			// unexpected error
@@ -74,7 +73,6 @@ func (l *Locker) Heartbeat(lease *Lease, heartbeatDuration time.Duration) error 
 			}
 			return err
 		}
-		globalLeaseLogger.LogInfoMessage("Renewed Lease", "lessee_id", lease.Request.LesseeID(), "lease_id", lease.LeaseID)
 	}
 	return nil
 }
